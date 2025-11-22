@@ -1,0 +1,42 @@
+{
+    "time_slots": [
+        {
+            "id": "MWF_1030_50",
+            "days": ["M", "W", "F"],
+            "start_time": "10:30",
+            "duration_min": 50
+        },
+        {
+            "id": "TR_1630_75",
+            "days": ["T", "R"],
+            "start_time": "16:30",
+            "duration_min": 75
+        },
+        {
+            "id": "MWF_0930_50",
+            "days": ["M", "W", "F"],
+            "start_time": "09:30",
+            "duration_min": 50
+        },
+        {
+            "id": "TR_1300_75",
+            "days": ["T", "R"],
+            "start_time": "13:00",
+            "duration_min": 75
+        }
+    ],
+    
+    "rooms": {
+        "HAAS_101": 50,
+        "LWSN_B158": 100,
+        "STEW_302": 30,
+        "ME_2001": 120
+    },
+    
+    "courses": {
+        "CS_500": { "professor": "Prof_A", "enrollment": 60 },
+        "CS_501": { "professor": "Prof_A", "enrollment": 40 },
+        "CS_502": { "professor": "Prof_B", "enrollment": 25 },
+        "CS_503": { "professor": "Prof_C", "enrollment": 90 }
+    }
+}

@@ -1,0 +1,307 @@
+{
+    "time_slots": [
+        {
+            "id": "MWF_0730",
+            "days": [
+                "M",
+                "W",
+                "F"
+            ],
+            "start_time": "07:30",
+            "duration_min": 50
+        },
+        {
+            "id": "MWF_0830",
+            "days": [
+                "M",
+                "W",
+                "F"
+            ],
+            "start_time": "08:30",
+            "duration_min": 50
+        },
+        {
+            "id": "MWF_0930",
+            "days": [
+                "M",
+                "W",
+                "F"
+            ],
+            "start_time": "09:30",
+            "duration_min": 50
+        },
+        {
+            "id": "MWF_1030",
+            "days": [
+                "M",
+                "W",
+                "F"
+            ],
+            "start_time": "10:30",
+            "duration_min": 50
+        },
+        {
+            "id": "MWF_1130",
+            "days": [
+                "M",
+                "W",
+                "F"
+            ],
+            "start_time": "11:30",
+            "duration_min": 50
+        },
+        {
+            "id": "MWF_1230",
+            "days": [
+                "M",
+                "W",
+                "F"
+            ],
+            "start_time": "12:30",
+            "duration_min": 50
+        },
+        {
+            "id": "MWF_1330",
+            "days": [
+                "M",
+                "W",
+                "F"
+            ],
+            "start_time": "13:30",
+            "duration_min": 50
+        },
+        {
+            "id": "MWF_1430",
+            "days": [
+                "M",
+                "W",
+                "F"
+            ],
+            "start_time": "14:30",
+            "duration_min": 50
+        },
+        {
+            "id": "MWF_1530",
+            "days": [
+                "M",
+                "W",
+                "F"
+            ],
+            "start_time": "15:30",
+            "duration_min": 50
+        },
+        {
+            "id": "TR_0900",
+            "days": [
+                "T",
+                "R"
+            ],
+            "start_time": "09:00",
+            "duration_min": 75
+        },
+        {
+            "id": "TR_1030",
+            "days": [
+                "T",
+                "R"
+            ],
+            "start_time": "10:30",
+            "duration_min": 75
+        },
+        {
+            "id": "TR_1200",
+            "days": [
+                "T",
+                "R"
+            ],
+            "start_time": "12:00",
+            "duration_min": 75
+        },
+        {
+            "id": "TR_1330",
+            "days": [
+                "T",
+                "R"
+            ],
+            "start_time": "13:30",
+            "duration_min": 75
+        },
+        {
+            "id": "TR_1500",
+            "days": [
+                "T",
+                "R"
+            ],
+            "start_time": "15:00",
+            "duration_min": 75
+        }
+    ],
+    "rooms": {
+        "CL50_224": 470,
+        "PHYS_112": 280,
+        "WALC_1055": 300,
+        "EE_129": 200,
+        "LWSN_1142": 120,
+        "LWSN_B151": 60,
+        "LWSN_B155": 50,
+        "HAAS_G066": 45
+    },
+    "courses": {
+        "CS_18000": {
+            "professor": "Prof_Star",
+            "enrollment": 450
+        },
+        "CS_24000": {
+            "professor": "Prof_Star",
+            "enrollment": 275
+        },
+        "CS_48301": {
+            "professor": "Prof_F",
+            "enrollment": 223
+        },
+        "CS_34200": {
+            "professor": "Prof_K",
+            "enrollment": 43
+        },
+        "CS_30300": {
+            "professor": "Prof_F",
+            "enrollment": 213
+        },
+        "CS_39100": {
+            "professor": "Prof_C",
+            "enrollment": 29
+        },
+        "CS_49201": {
+            "professor": "Prof_G",
+            "enrollment": 118
+        },
+        "CS_37701": {
+            "professor": "Prof_D",
+            "enrollment": 60
+        },
+        "CS_52500": {
+            "professor": "Prof_A",
+            "enrollment": 44
+        },
+        "CS_42201": {
+            "professor": "Prof_B",
+            "enrollment": 119
+        },
+        "CS_58900": {
+            "professor": "Prof_I",
+            "enrollment": 44
+        },
+        "CS_39201": {
+            "professor": "Prof_C",
+            "enrollment": 87
+        },
+        "CS_42100": {
+            "professor": "Prof_H",
+            "enrollment": 24
+        },
+        "CS_58601": {
+            "professor": "Prof_F",
+            "enrollment": 54
+        },
+        "CS_34000": {
+            "professor": "Prof_K",
+            "enrollment": 103
+        },
+        "CS_43900": {
+            "professor": "Prof_E",
+            "enrollment": 106
+        },
+        "CS_51900": {
+            "professor": "Prof_I",
+            "enrollment": 24
+        },
+        "CS_33500": {
+            "professor": "Prof_A",
+            "enrollment": 34
+        },
+        "CS_55400": {
+            "professor": "Prof_K",
+            "enrollment": 59
+        },
+        "CS_34400": {
+            "professor": "Prof_B",
+            "enrollment": 25
+        },
+        "CS_59001": {
+            "professor": "Prof_I",
+            "enrollment": 112
+        },
+        "CS_53000": {
+            "professor": "Prof_H",
+            "enrollment": 47
+        },
+        "CS_36000": {
+            "professor": "Prof_F",
+            "enrollment": 47
+        },
+        "CS_41500": {
+            "professor": "Prof_G",
+            "enrollment": 236
+        },
+        "CS_53400": {
+            "professor": "Prof_F",
+            "enrollment": 49
+        },
+        "CS_40601": {
+            "professor": "Prof_J",
+            "enrollment": 45
+        },
+        "CS_54400": {
+            "professor": "Prof_H",
+            "enrollment": 56
+        },
+        "CS_55000": {
+            "professor": "Prof_L",
+            "enrollment": 20
+        },
+        "CS_54900": {
+            "professor": "Prof_E",
+            "enrollment": 119
+        },
+        "CS_39001": {
+            "professor": "Prof_D",
+            "enrollment": 211
+        },
+        "CS_44301": {
+            "professor": "Prof_C",
+            "enrollment": 46
+        },
+        "CS_45601": {
+            "professor": "Prof_L",
+            "enrollment": 52
+        },
+        "CS_52401": {
+            "professor": "Prof_E",
+            "enrollment": 41
+        },
+        "CS_35300": {
+            "professor": "Prof_B",
+            "enrollment": 52
+        },
+        "CS_51601": {
+            "professor": "Prof_J",
+            "enrollment": 34
+        },
+        "CS_51101": {
+            "professor": "Prof_I",
+            "enrollment": 52
+        },
+        "CS_39300": {
+            "professor": "Prof_A",
+            "enrollment": 21
+        },
+        "CS_53800": {
+            "professor": "Prof_A",
+            "enrollment": 50
+        },
+        "CS_36601": {
+            "professor": "Prof_L",
+            "enrollment": 45
+        }
+    }
+}
