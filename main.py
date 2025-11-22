@@ -34,8 +34,8 @@ def main():
     parser.add_argument(
         'input_file', 
         nargs='?', 
-        default='input_data.json', 
-        help="Path to the input JSON file (default: input_data.json)"
+        default='input_synthetic.json', 
+        help="Path to the input JSON file (default: input_synthetic.json)"
     )
     args = parser.parse_args()
     print("--- Multi-Agent Classroom Scheduling System (MACSS) ---")

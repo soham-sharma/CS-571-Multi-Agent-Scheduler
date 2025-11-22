@@ -2,7 +2,7 @@ from constraint import Problem, AllDifferentConstraint
 from data_model import load_data
 from datetime import datetime, timedelta
 
-# --- Helper Function for Time Conflicts ---
+# Helper Function for Time Conflicts
 
 def get_interval(time_slot_id, time_slot_details, day):
     """Calculates the start and end datetime for a specific time slot on a specific day."""
@@ -10,7 +10,7 @@ def get_interval(time_slot_id, time_slot_details, day):
     start_time_str = details['start_time']
     duration = details['duration_min']
     
-    # Use a dummy date (1970-01-01) for comparison, as we only care about time of day
+    # Use a dummy date for comparison, as we only care about time of day
     start_dt = datetime.strptime(start_time_str, "%H:%M")
     end_dt = start_dt + timedelta(minutes=duration)
     
@@ -52,7 +52,7 @@ def find_initial_assignment(data):
     problem = Problem()
     problem.addVariables(courses, domain)
 
-    # --- 2. Hard Constraints ---
+    # Hard Constraints
     
     # A. Unique Room-Time (now needs overlap check)
     def check_room_collision(assignment_1, assignment_2, course_a, course_b):

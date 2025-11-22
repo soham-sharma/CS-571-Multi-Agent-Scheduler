@@ -1,11 +1,7 @@
-# data_model.py
-
 import json
-# Import datetime tools for conflict checking later
 from datetime import datetime, timedelta 
 
-def load_data(filepath='input_data.json'):
-    # ... (File loading remains the same)
+def load_data(filepath):
     try:
         with open(filepath, 'r') as f:
             data = json.load(f)
@@ -18,7 +14,7 @@ def load_data(filepath='input_data.json'):
     rooms = data.get("rooms", {}) 
     courses_raw = data.get("courses", {}) 
 
-    # --- NEW: Create a dictionary mapping time slot ID to its details ---
+    # Create a dictionary mapping time slot ID to its details   
     time_slots = {ts['id']: ts for ts in time_slots_list}
     
     # Create simplified lists and mappings for the CSP solver
@@ -39,7 +35,7 @@ def load_data(filepath='input_data.json'):
         "professors": professors,
         "enrollments": enrollments,
         "room_capacities": rooms,
-        "time_slot_details": time_slots # Store the details for constraint checks
+        "time_slot_details": time_slots
     }
 
 if __name__ == '__main__':
