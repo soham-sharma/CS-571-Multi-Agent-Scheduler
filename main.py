@@ -1,75 +1,100 @@
+# main.py
 import json
 import argparse
 from data_model import load_data
 from csp_solver import find_initial_assignment
+from negotiation import NegotiationProtocol
+from objective import (
+    calculate_total_cost,
+    calculate_student_conflicts,
+    calculate_professor_penalty
+)
+from visualization import (
+    plot_cost_history,
+    plot_basic_comparison,
+    plot_conflict_heatmap
+)
 
-OUTPUT_FILE = 'initial_schedule_A0.json'
+OUTPUT_A0 = "initial_schedule_A0.json"
+OUTPUT_FINAL = "final_schedule_negotiated.json"
 
-def print_grid_view(schedule, data):
-    rooms = list(data['room_capacities'].keys())
-    time_slots = list(data['time_slot_details'].keys())
 
-    # Normalize schedule values (list or tuple) to (time_slot, room)
-    normalized = {}
-    for course, val in schedule.items():
-        if isinstance(val, (list, tuple)) and len(val) >= 2:
-            ts, room = val[0], val[1]
-        else:
-            continue
-        normalized.setdefault(room, []).append((ts, course))
+def normalize_schedule(raw):
+    # Converts A0 raw JSON into internal dict format
+    return {c: {"time": v[0], "room": v[1]} for c, v in raw.items()}
 
-    print("\n--- Room View ---")
-    for r in rooms:
-        print(f"\n{r}:")
-        entries = normalized.get(r, [])
-        # Sort by time-slot id
-        for ts, course in sorted(entries):
-            print(f"  {ts} -> {course}")
+
+def print_basic_comparison(A0_sched, A_final_sched, data):
+    # Computes student conflicts and prof penalties
+    sc0 = calculate_student_conflicts(A0_sched, data["student_enrollments"], data["time_slot_details"])
+    scf = calculate_student_conflicts(A_final_sched, data["student_enrollments"], data["time_slot_details"])
+
+    pp0 = calculate_professor_penalty(A0_sched, data["professor_preferences"], data["professors"], data["time_slot_details"])
+    ppf = calculate_professor_penalty(A_final_sched, data["professor_preferences"], data["professors"], data["time_slot_details"])
+
+    c0 = calculate_total_cost(A0_sched, data)
+    cf = calculate_total_cost(A_final_sched, data)
+
+    print("\n--- Comparison (A0 vs Final) ---")
+    print(f"Student conflicts: {sc0} → {scf}")
+    print(f"Professor penalty: {pp0} → {ppf}")
+    print(f"Total cost:        {c0:.2f} → {cf:.2f}")
+
+    return sc0, scf, pp0, ppf
+
 
 def main():
-    """
-    Data loading, CSP solving, and output saving.
-    """
-    parser = argparse.ArgumentParser(description="Run MACSS Initial Solver")
+    parser = argparse.ArgumentParser(description="Run MACSS Complete (CSP + Negotiation)")
     parser.add_argument(
-        'input_file', 
-        nargs='?', 
-        default='input_synthetic.json', 
-        help="Path to the input JSON file (default: input_synthetic.json)"
+        "input_file",
+        nargs="?",
+        default="input_synthetic.json",
+        help="Path to input JSON"
     )
     args = parser.parse_args()
-    print("--- Multi-Agent Classroom Scheduling System (MACSS) ---")
-    print(f"Reading from: {args.input_file}")
-    
-    # 1. Load Data (from input_data.json)
+
     data = load_data(args.input_file)
     if data is None:
         return
-    
-    # 2. Find Initial Feasible Assignment (A0)
-    initial_schedule = find_initial_assignment(data)
-    
-    # 3. Save Output for Agent Negotiation
-    if initial_schedule:
-        print("\nStatus: Feasible Initial Assignment (A0) Found.")
-        
-        # Display the schedule
-        print("\n--- Initial Schedule (A0) ---")
-        for course, (time, room) in initial_schedule.items():
-            enrollment = data["enrollments"][course]
-            capacity = data["room_capacities"][room]
-            print(f"{course:<9}: {time:<15} in {room:<10} (Enroll: {enrollment}, Room Cap: {capacity})")
-        
-        print_grid_view(initial_schedule, data)
-            
-        # Save the result
-        with open(OUTPUT_FILE, 'w') as f:
-            json.dump(initial_schedule, f, indent=4)
-            
-        print(f"\nSchedule saved successfully to {OUTPUT_FILE} for agent negotiation.")
-        
-    else:
-        print("\nStatus: Could not find a feasible schedule satisfying all hard constraints.")
+
+    # Run CSP for initial schedule
+    print("\nSolving CSP...")
+    A0 = find_initial_assignment(data)
+    if not A0:
+        print("No feasible CSP schedule found.")
+        return
+
+    with open(OUTPUT_A0, "w") as f:
+        json.dump(A0, f, indent=4)
+    print("Initial schedule saved to", OUTPUT_A0)
+
+    # Run negotiation
+    print("\nRunning negotiation...")
+    proto = NegotiationProtocol(A0, data)
+    final_sched, cost_history = proto.run()
+
+    # Save final schedule
+    final_out = {c: [v["time"], v["room"]] for c, v in final_sched.items()}
+    with open(OUTPUT_FINAL, "w") as f:
+        json.dump(final_out, f, indent=4)
+    print("Final schedule saved to", OUTPUT_FINAL)
+
+    # Normalize
+    A0_norm = normalize_schedule(A0)
+    A_final_norm = final_sched
+
+    # Print comparison results
+    sc0, scf, pp0, ppf = print_basic_comparison(A0_norm, A_final_norm, data)
+
+    # Generate plots
+    print("\nGenerating visualization files...")
+    plot_cost_history(cost_history, "cost_history.png")
+    plot_basic_comparison(sc0, pp0, scf, ppf, "comparison.png")
+
+    # Optional conflict heatmap
+    # plot_conflict_heatmap(A_final_norm, data["student_enrollments"], data["time_slot_details"], "final_heatmap.png")
+
+    print("Visualization outputs saved to current directory.")
 
 
 if __name__ == "__main__":
