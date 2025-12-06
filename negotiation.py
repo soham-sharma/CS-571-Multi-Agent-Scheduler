@@ -45,6 +45,7 @@ class NegotiationProtocol:
                     course_list,
                     self.data["professor_preferences"].get(prof, {}),
                     full_domain=self._domain_dict(),
+                    time_slot_details=self.data["time_slot_details"],
                     rng=random.Random(hash(prof) % (2**32))
                 )
             )

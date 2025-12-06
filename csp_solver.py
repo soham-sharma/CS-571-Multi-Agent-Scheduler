@@ -1,44 +1,6 @@
 from constraint import Problem, AllDifferentConstraint
 from data_model import load_data
-from datetime import datetime, timedelta
-
-# Helper Function for Time Conflicts
-
-def get_interval(time_slot_id, time_slot_details, day):
-    """Calculates the start and end datetime for a specific time slot on a specific day."""
-    details = time_slot_details[time_slot_id]
-    start_time_str = details['start_time']
-    duration = details['duration_min']
-    
-    # Use a dummy date for comparison, as we only care about time of day
-    start_dt = datetime.strptime(start_time_str, "%H:%M")
-    end_dt = start_dt + timedelta(minutes=duration)
-    
-    return start_dt, end_dt
-
-def timeslots_overlap(ts_id_1, ts_id_2, time_slot_details):
-    """
-    Checks if two time slots conflict on any shared day.
-    
-    Returns True if conflict exists (constraint violated), False otherwise.
-    """
-    details_1 = time_slot_details[ts_id_1]
-    details_2 = time_slot_details[ts_id_2]
-    
-    # Find common days (e.g., if both are MWF, the conflict is possible)
-    common_days = set(details_1['days']) & set(details_2['days'])
-    
-    if not common_days:
-        return False
-
-    # Since all instances of a given time slot (e.g., MWF_1030_50) have 
-    # the same start time and duration, we only need to check one common day.
-    
-    start_1, end_1 = get_interval(ts_id_1, time_slot_details, common_days.pop())
-    start_2, end_2 = get_interval(ts_id_2, time_slot_details, common_days.pop())
-    
-    # Time overlap check: start1 < end2 AND start2 < end1
-    return (start_1 < end_2) and (start_2 < end_1)
+from utils import timeslots_overlap
     
 def find_initial_assignment(data):
     # Unpack necessary data
@@ -113,7 +75,7 @@ def find_initial_assignment(data):
     return solution
 
 if __name__ == '__main__':
-    data = load_data()
+    data = load_data("input_synthetic.json", "preferences.json")
     if data:
         schedule = find_initial_assignment(data)
         if schedule:

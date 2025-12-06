@@ -1,42 +1,25 @@
 # objective.py
 from typing import Dict, Any
-
-
-def _classify_time_of_day(start_time: str) -> str:
-    # Returns morning, afternoon, or evening based on start hour
-    h = int(start_time.split(":")[0])
-    if h < 12:
-        return "morning"
-    if h < 17:
-        return "afternoon"
-    return "evening"
-
-
-def _get_day_pattern(days) -> str:
-    # Returns MWF, TR, or other based on day list
-    s = set(days)
-    if {"M", "W", "F"}.issubset(s):
-        return "MWF"
-    if {"T", "R"}.issubset(s):
-        return "TR"
-    return "other"
+from utils import timeslots_overlap
+from preference_scoring import calculate_preference_score, calculate_penalty, normalize_enrollment_weight
 
 
 def calculate_student_conflicts(schedule, student_enrollments, time_slot_details) -> int:
-    # Counts overlapping courses for each student
-    total = 0
+    """
+    Counts overlapping courses for each student.
 
-    def overlap(ts1, ts2):
-        d1, d2 = time_slot_details[ts1], time_slot_details[ts2]
-        common = set(d1["days"]) & set(d2["days"])
-        if not common:
-            return False
-        def to_min(t):
-            h, m = t.split(":")
-            return int(h) * 60 + int(m)
-        s1, s2 = to_min(d1["start_time"]), to_min(d2["start_time"])
-        e1, e2 = s1 + d1["duration_min"], s2 + d2["duration_min"]
-        return s1 < e2 and s2 < e1
+    This is a hard metric - each overlap represents a student who cannot
+    take both courses due to scheduling conflicts.
+
+    Args:
+        schedule: Current schedule assignment
+        student_enrollments: Dict of student_id -> list of course IDs
+        time_slot_details: Time slot information
+
+    Returns:
+        int: Total number of student schedule conflicts
+    """
+    total = 0
 
     for sid, courses in student_enrollments.items():
         for i in range(len(courses)):
@@ -51,63 +34,173 @@ def calculate_student_conflicts(schedule, student_enrollments, time_slot_details
                     continue
                 ts2 = schedule[cj]["time"]
 
-                if overlap(ts1, ts2):
+                if timeslots_overlap(ts1, ts2, time_slot_details):
                     total += 1
 
     return total
 
 
-def calculate_professor_penalty(schedule, professor_preferences, professors, time_slot_details) -> int:
-    # Computes penalties for how badly courses violate professor prefs
-    total = 0
+def calculate_professor_penalty(
+    schedule,
+    professor_preferences,
+    professors,
+    time_slot_details,
+    enrollments,
+    use_enrollment_weighting=True
+) -> float:
+    """
+    Computes penalties for professor preference violations using the preference scoring function.
+
+    Uses the preference scoring system from preference_scoring.py that returns scores from
+    0.0 (worst) to 1.0 (best), then converts to penalties with enrollment-based weighting.
+
+    Professors with higher total enrollment have their penalties weighted more heavily,
+    ensuring that courses with more students get better time slot assignments.
+
+    Args:
+        schedule: Current schedule assignment
+        professor_preferences: Dict of professor_id -> preference dict
+        professors: Dict of course_id -> professor_id
+        time_slot_details: Time slot information
+        enrollments: Dict of course_id -> enrollment count
+        use_enrollment_weighting: If True, weight penalties by professor enrollment
+
+    Returns:
+        float: Total weighted penalty across all professors
+    """
+    # First, calculate total enrollment per professor for weighting
+    professor_enrollment = {}
+    for course, prof in professors.items():
+        if prof not in professor_enrollment:
+            professor_enrollment[prof] = 0
+        professor_enrollment[prof] += enrollments.get(course, 0)
+
+    total_penalty = 0.0
 
     for course, info in schedule.items():
         prof = professors[course]
         prefs = professor_preferences.get(prof, {})
 
+        # Get assigned time slot
         ts = info["time"]
-        ts_info = time_slot_details[ts]
 
-        tod = _classify_time_of_day(ts_info["start_time"])
-        pattern = _get_day_pattern(ts_info["days"])
+        # Calculate preference score (0.0 to 1.0)
+        pref_score = calculate_preference_score(ts, prefs, time_slot_details)
 
-        tod_pref = prefs.get("time_of_day_pref", [])
-        pattern_pref = prefs.get("day_pattern_pref", "both")
-        preferred_slots = prefs.get("preferred_time_slots", [])
-        avoided_slots = prefs.get("avoided_time_slots", [])
+        # Calculate enrollment weight
+        if use_enrollment_weighting:
+            prof_total_enrollment = professor_enrollment.get(prof, 100)
+            enrollment_weight = normalize_enrollment_weight(prof_total_enrollment)
+        else:
+            enrollment_weight = 1.0
 
-        # Penalty for avoided time slot
-        if ts in avoided_slots:
-            total += 10
+        # Convert to penalty with enrollment weighting
+        penalty = calculate_penalty(pref_score, enrollment_weight, use_linear=True)
 
-        # Penalty if not in preferred slot list
-        if preferred_slots and ts not in preferred_slots:
-            total += 3
+        total_penalty += penalty
 
-        # Penalty for time-of-day mismatch
-        if tod_pref and tod not in tod_pref:
-            total += 2
-
-        # Penalty for day-pattern mismatch
-        if pattern_pref != "both" and pattern != pattern_pref:
-            total += 2
-
-    return total
+    return total_penalty
 
 
-def calculate_total_cost(schedule, data, w_student=1.0, w_prof=0.5) -> float:
-    # Combines student conflicts and professor penalties
+def calculate_student_preference_penalty(
+    schedule,
+    student_preferences,
+    student_enrollments,
+    time_slot_details
+) -> float:
+    """
+    Computes penalties for student preference violations.
+
+    Similar to professor penalties, but for students. Each student has preferences
+    for time-of-day and days-of-week. This is a soft constraint - students can still
+    take courses even if preferences aren't met, but lower satisfaction.
+
+    Args:
+        schedule: Current schedule assignment
+        student_preferences: Dict of student_id -> preference dict
+        student_enrollments: Dict of student_id -> list of course IDs
+        time_slot_details: Time slot information
+
+    Returns:
+        float: Total student preference penalty
+    """
+    total_penalty = 0.0
+
+    for student_id, courses in student_enrollments.items():
+        prefs = student_preferences.get(student_id, {})
+
+        for course in courses:
+            if course not in schedule:
+                continue
+
+            ts = schedule[course]["time"]
+
+            # Calculate preference score for this course assignment
+            pref_score = calculate_preference_score(ts, prefs, time_slot_details)
+
+            # Convert to penalty (no enrollment weighting for students - all equal)
+            # Use smaller max penalty for students (3.0 vs 5.0 for professors)
+            penalty = 3.0 * (1.0 - pref_score)
+
+            total_penalty += penalty
+
+    return total_penalty
+
+
+def calculate_total_cost(
+    schedule,
+    data,
+    w_student_conflict=1.0,
+    w_student_pref=0.3,
+    w_prof=0.5
+) -> float:
+    """
+    Combines all cost components into a single objective value.
+
+    Cost Components:
+    1. Student conflicts (hard conflicts - overlapping courses)
+    2. Student preference penalties (soft - time/day preferences)
+    3. Professor preference penalties (soft - time/day preferences with enrollment weighting)
+
+    Args:
+        schedule: Current schedule assignment
+        data: Dictionary containing all system data
+        w_student_conflict: Weight for student schedule conflicts (default 1.0)
+        w_student_pref: Weight for student preference violations (default 0.3)
+        w_prof: Weight for professor preference violations (default 0.5)
+
+    Returns:
+        float: Total weighted cost (lower is better)
+    """
+    # Hard conflicts: Students can't take both courses
     student_conflicts = calculate_student_conflicts(
         schedule,
         data["student_enrollments"],
         data["time_slot_details"]
     )
 
+    # Soft preference penalties: Professor preferences with enrollment weighting
     prof_penalty = calculate_professor_penalty(
         schedule,
         data["professor_preferences"],
         data["professors"],
+        data["time_slot_details"],
+        data["enrollments"],
+        use_enrollment_weighting=True
+    )
+
+    # Soft preference penalties: Student preferences
+    student_pref_penalty = calculate_student_preference_penalty(
+        schedule,
+        data.get("student_preferences", {}),
+        data["student_enrollments"],
         data["time_slot_details"]
     )
 
-    return w_student * student_conflicts + w_prof * prof_penalty
+    total_cost = (
+        w_student_conflict * student_conflicts +
+        w_student_pref * student_pref_penalty +
+        w_prof * prof_penalty
+    )
+
+    return total_cost

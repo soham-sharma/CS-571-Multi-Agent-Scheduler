@@ -3,6 +3,7 @@ from __future__ import annotations
 import random
 from typing import Dict, List, Tuple, Any, Optional
 from dataclasses import dataclass
+from utils import timeslots_overlap
 
 Schedule = Dict[str, Dict[str, Any]]    # course -> {"time": ts_id, "room": room_id}
 Assignment = Tuple[str, str]            # (time_slot_id, room_id)
@@ -42,23 +43,6 @@ class RegistrarAgent(BaseAgent):
         self.room_capacities = room_capacities
         self.enrollments = enrollments
 
-    def _timeslots_overlap(self, ts1: str, ts2: str) -> bool:
-        d1, d2 = self.time_slot_details[ts1], self.time_slot_details[ts2]
-        common = set(d1["days"]) & set(d2["days"])
-        if not common:
-            return False
-
-        def to_min(t: str):
-            h, m = t.split(":")
-            return int(h) * 60 + int(m)
-
-        s1, e1 = to_min(d1["start_time"]), None
-        s2, e2 = to_min(d2["start_time"]), None
-        e1 = s1 + d1["duration_min"]
-        e2 = s2 + d2["duration_min"]
-
-        return s1 < e2 and s2 < e1
-
     def validates(self, schedule: Schedule, proposal: Proposal) -> bool:
         updated = {c: v.copy() for c, v in schedule.items()}
 
@@ -87,7 +71,7 @@ class RegistrarAgent(BaseAgent):
         for room, ts_list in usage.items():
             for i in range(len(ts_list)):
                 for j in range(i + 1, len(ts_list)):
-                    if self._timeslots_overlap(ts_list[i], ts_list[j]):
+                    if timeslots_overlap(ts_list[i], ts_list[j], self.time_slot_details):
                         return False
 
         return True
@@ -96,6 +80,9 @@ class RegistrarAgent(BaseAgent):
 class ProfessorAgent(BaseAgent):
     """
     Proposes schedule adjustments for courses taught by a specific professor.
+
+    Now uses preference-driven proposal generation: instead of random selection,
+    proposals are biased toward time slots that better match professor preferences.
     """
     def __init__(
         self,
@@ -103,12 +90,36 @@ class ProfessorAgent(BaseAgent):
         courses: List[str],
         preferences: Dict[str, Any],
         full_domain: Dict[str, List[Assignment]],
+        time_slot_details: Dict[str, Dict[str, Any]],
         rng: Optional[random.Random] = None
     ):
         super().__init__(prof_id, rng)
         self.courses = courses
         self.preferences = preferences
         self.full_domain = full_domain
+        self.time_slot_details = time_slot_details
+
+    def _score_time_slot(self, time_slot_id: str) -> float:
+        """
+        Score how well a time slot matches this professor's preferences.
+        Uses a simple preference scoring (higher = better).
+
+        Returns a score that can be used as a weight for probabilistic selection.
+        """
+        from preference_scoring import calculate_preference_score
+
+        if not self.preferences:
+            return 1.0  # No preferences, all equal
+
+        score = calculate_preference_score(
+            time_slot_id,
+            self.preferences,
+            self.time_slot_details
+        )
+
+        # Convert 0-1 score to weight (add small epsilon to avoid zero weights)
+        # Higher score = higher weight = more likely to be selected
+        return score + 0.1
 
     def generate_proposal(self, schedule: Schedule) -> Optional[Proposal]:
         if not self.courses:
@@ -117,8 +128,36 @@ class ProfessorAgent(BaseAgent):
         course = self.rng.choice(self.courses)
         domain = self.full_domain[course]
 
+        # 70% single reassignment, 30% swap
         if self.rng.random() < 0.7:
-            new_ts, new_room = self.rng.choice(domain)
+            # Instead of purely random, use weighted selection based on preference scores
+            time_slots_in_domain = list(set([ts for ts, room in domain]))
+
+            # Score each time slot
+            scores = [self._score_time_slot(ts) for ts in time_slots_in_domain]
+            total_score = sum(scores)
+
+            # Probabilistic selection weighted by preference scores
+            r = self.rng.random() * total_score
+            acc = 0.0
+            selected_ts = time_slots_in_domain[0]  # fallback
+
+            for ts, score in zip(time_slots_in_domain, scores):
+                acc += score
+                if r <= acc:
+                    selected_ts = ts
+                    break
+
+            # Now pick a room that matches this time slot
+            possible_rooms = [room for ts, room in domain if ts == selected_ts]
+            if not possible_rooms:
+                # Fallback to random if something goes wrong
+                new_ts, new_room = self.rng.choice(domain)
+            else:
+                new_room = self.rng.choice(possible_rooms)
+                new_ts = selected_ts
+
+            # Don't propose if it's the same as current
             if (new_ts == schedule[course]["time"]
                 and new_room == schedule[course]["room"]):
                 return None
@@ -129,6 +168,7 @@ class ProfessorAgent(BaseAgent):
                 new_assignment_a=(new_ts, new_room)
             )
 
+        # Swap proposal
         if len(self.courses) < 2:
             return None
 
@@ -156,23 +196,6 @@ class StudentAggregatorAgent(BaseAgent):
         self.student_enrollments = student_enrollments
         self.time_slot_details = time_slot_details
 
-    def _timeslots_overlap(self, ts1: str, ts2: str) -> bool:
-        d1, d2 = self.time_slot_details[ts1], self.time_slot_details[ts2]
-        common = set(d1["days"]) & set(d2["days"])
-        if not common:
-            return False
-
-        def to_min(t: str):
-            h, m = t.split(":")
-            return int(h) * 60 + int(m)
-
-        s1 = to_min(d1["start_time"])
-        s2 = to_min(d2["start_time"])
-        e1 = s1 + d1["duration_min"]
-        e2 = s2 + d2["duration_min"]
-
-        return s1 < e2 and s2 < e1
-
     def compute_conflicts(self, schedule: Schedule) -> int:
         total = 0
         for sid, courses in self.student_enrollments.items():
@@ -188,6 +211,6 @@ class StudentAggregatorAgent(BaseAgent):
                         continue
                     ts2 = schedule[cj]["time"]
 
-                    if self._timeslots_overlap(ts1, ts2):
+                    if timeslots_overlap(ts1, ts2, self.time_slot_details):
                         total += 1
         return total

@@ -40,15 +40,19 @@ def generate():
 
     # 3. Generate Courses
     courses = {}
-    
+
+    # Track how many courses each professor has (MAX 2 per professor)
+    professor_course_count = {prof: 0 for prof in professors}
+
     # Bottleneck courses
     # We force 2 big classes that only fit in the biggest 1 or 2 rooms
-    courses["CS_18000"] = {"professor": "Prof_Star", "enrollment": 450} 
+    courses["CS_18000"] = {"professor": "Prof_Star", "enrollment": 450}
     courses["CS_24000"] = {"professor": "Prof_Star", "enrollment": 275} # Same prof, hard constraint.
+    professor_course_count["Prof_Star"] = 2  # Prof_Star is now at max
 
     for i in range(NUM_COURSES - 2):
         course_code = f"CS_{random.randint(300, 599)}{random.choice(['00', '01'])}"
-        
+
         # Weighted random enrollment:
         rand_val = random.random()
         if rand_val < 0.6:
@@ -57,11 +61,20 @@ def generate():
             enroll = random.randint(61, 120)  # 30% Medium
         else:
             enroll = random.randint(121, 250) # 10% Large
-            
+
+        # Find a professor with < 2 courses
+        available_professors = [p for p in professors if professor_course_count[p] < 2]
+        if not available_professors:
+            # If all professors have 2 courses, we need to stop or add more professors
+            print(f"Warning: All professors have reached max 2 courses. Cannot assign course {course_code}")
+            break
+
+        selected_prof = random.choice(available_professors)
         courses[course_code] = {
-            "professor": random.choice(professors),
+            "professor": selected_prof,
             "enrollment": enroll
         }
+        professor_course_count[selected_prof] += 1
 
     # 4. Construct Final JSON
     data = {

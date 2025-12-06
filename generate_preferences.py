@@ -37,20 +37,47 @@ def get_day_pattern(days: List[str]) -> str:
     return "other"
 
 
-def pick_time_of_day_pref() -> List[str]:
+def pick_time_of_day_pref() -> str:
     """
-    Pick 1–3 time-of-day preferences out of {morning, afternoon, evening}.
+    Pick a single time-of-day preference.
+    Returns: "morning", "afternoon", or "no_preference"
     """
-    options = ["morning", "afternoon", "evening"]
+    return RNG.choice(["morning", "afternoon", "no_preference"])
+
+
+def pick_preferred_days() -> List[str]:
+    """
+    Pick 0-3 preferred days from M, T, W, R, F.
+    Returns empty list for no preference, or list of 1-3 days.
+    """
+    all_days = ["M", "T", "W", "R", "F"]
+    # 30% chance of no preference
+    if RNG.random() < 0.3:
+        return []
+    # Otherwise pick 1-3 days
     k = RNG.randint(1, 3)
-    return RNG.sample(options, k)
+    return RNG.sample(all_days, k)
 
 
-def pick_day_pattern_pref() -> str:
+def pick_avoid_days() -> List[str]:
     """
-    Pick one of {MWF, TR, both}.
+    Pick 0-2 days to avoid (commonly Friday or other days).
     """
-    return RNG.choice(["MWF", "TR", "both"])
+    all_days = ["M", "T", "W", "R", "F"]
+    # 50% chance professor avoids Friday
+    if RNG.random() < 0.5:
+        avoid = ["F"]
+        # 20% chance they avoid one more day
+        if RNG.random() < 0.2:
+            other_days = [d for d in all_days if d != "F"]
+            avoid.append(RNG.choice(other_days))
+        return avoid
+    # 30% chance they avoid some other day(s)
+    elif RNG.random() < 0.6:
+        k = RNG.randint(1, 2)
+        return RNG.sample(all_days, k)
+    # No avoided days
+    return []
 
 
 def generate_professor_preferences(
@@ -58,71 +85,36 @@ def generate_professor_preferences(
     courses_raw: Dict[str, Dict[str, Any]],
 ) -> Dict[str, Any]:
     """
+    Generate professor preferences in the format specified by PREFERENCE_FUNCTION_DESIGN.md.
+
     time_slots: {time_id: {id, days, start_time, duration_min}}
     courses_raw: {"CS_500": {"professor": "Prof_A", "enrollment": 60}, ...}
+
     Returns:
       {prof_id: {
-          "time_of_day_pref": [...],
-          "day_pattern_pref": "MWF"/"TR"/"both",
-          "preferred_time_slots": [...],
-          "avoided_time_slots": [...]
+          "time_of_day": "morning"/"afternoon"/"no_preference",
+          "preferred_days": ["M", "W", ...],  # List of 0-3 days
+          "avoid_days": ["F", ...]  # List of 0-2 days
       }}
     """
-    # Build set of professors and map prof -> list of their courses
+    # Build set of professors
     prof_courses: Dict[str, List[str]] = defaultdict(list)
     for cid, info in courses_raw.items():
         prof = info["professor"]
         prof_courses[prof].append(cid)
 
-    # Precompute metadata for time slots
-    ts_meta = {}
-    for ts_id, ts in time_slots.items():
-        tod = classify_time_of_day(ts["start_time"])
-        pattern = get_day_pattern(ts["days"])
-        ts_meta[ts_id] = {"time_of_day": tod, "pattern": pattern}
-
     professor_prefs: Dict[str, Any] = {}
 
     for prof in prof_courses.keys():
-        tod_pref = pick_time_of_day_pref()
-        day_pref = pick_day_pattern_pref()
-
-        # Candidate time slots matching preferences
-        candidate_preferred = []
-        candidate_avoid = []
-
-        for ts_id, meta in ts_meta.items():
-            tod = meta["time_of_day"]
-            pattern = meta["pattern"]
-
-            # Check pattern match
-            match_pattern = False
-            if day_pref == "MWF" and pattern == "MWF":
-                match_pattern = True
-            elif day_pref == "TR" and pattern == "TR":
-                match_pattern = True
-            elif day_pref == "both" and pattern in ("MWF", "TR"):
-                match_pattern = True
-
-            if match_pattern and tod in tod_pref:
-                candidate_preferred.append(ts_id)
-            else:
-                # Could be avoided or neutral; we'll sample some as avoid
-                candidate_avoid.append(ts_id)
-
-        preferred_time_slots = RNG.sample(
-            candidate_preferred, k=min(3, len(candidate_preferred))
-        ) if candidate_preferred else []
-
-        avoided_time_slots = RNG.sample(
-            candidate_avoid, k=min(2, len(candidate_avoid))
-        ) if candidate_avoid else []
+        # Generate preferences according to design spec
+        time_of_day = pick_time_of_day_pref()
+        preferred_days = pick_preferred_days()
+        avoid_days = pick_avoid_days()
 
         professor_prefs[prof] = {
-            "time_of_day_pref": tod_pref,
-            "day_pattern_pref": day_pref,
-            "preferred_time_slots": preferred_time_slots,
-            "avoided_time_slots": avoided_time_slots,
+            "time_of_day": time_of_day,
+            "preferred_days": preferred_days,
+            "avoid_days": avoid_days,
         }
 
     return professor_prefs
@@ -180,17 +172,23 @@ def generate_student_preferences(
     student_enrollments: Dict[str, List[str]]
 ) -> Dict[str, Any]:
     """
+    Generate student preferences matching the same format as professors.
+
     Each student gets:
-      - time_of_day_pref: list of {morning, afternoon, evening}
-      - day_pattern_pref: {MWF, TR, both}
+      - time_of_day: "morning"/"afternoon"/"no_preference"
+      - preferred_days: list of days
+      - avoid_days: list of days to avoid
     """
     prefs: Dict[str, Any] = {}
     for sid in student_enrollments.keys():
-        tod_pref = pick_time_of_day_pref()
-        day_pref = pick_day_pattern_pref()
+        time_of_day = pick_time_of_day_pref()
+        preferred_days = pick_preferred_days()
+        avoid_days = pick_avoid_days()
+
         prefs[sid] = {
-            "time_of_day_pref": tod_pref,
-            "day_pattern_pref": day_pref,
+            "time_of_day": time_of_day,
+            "preferred_days": preferred_days,
+            "avoid_days": avoid_days,
         }
     return prefs
 
